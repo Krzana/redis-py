@@ -5,6 +5,10 @@ The Python interface to the Redis key-value store.
 
 .. image:: https://secure.travis-ci.org/andymccurdy/redis-py.png?branch=master
         :target: http://travis-ci.org/andymccurdy/redis-py
+.. image:: https://readthedocs.org/projects/redis-py/badge/?version=latest&style=flat
+        :target: https://redis-py.readthedocs.io/en/latest/
+.. image:: https://badge.fury.io/py/redis.svg
+        :target: https://pypi.org/project/redis/
 
 Installation
 ------------
@@ -42,6 +46,15 @@ Getting Started
     True
     >>> r.get('foo')
     'bar'
+
+By default, all responses are returned as `bytes` in Python 3 and `str` in
+Python 2. The user is responsible for decoding to Python 3 strings or Python 2
+unicode objects.
+
+If **all** string responses from a client should be decoded, the user can
+specify `decode_responses=True` to `StrictRedis.__init__`. In this case, any
+Redis command that returns a string type will be decoded with the `encoding`
+specified.
 
 API Reference
 -------------
@@ -174,7 +187,7 @@ set_response_callback method. This method accepts two arguments: a command
 name and the callback. Callbacks added in this manner are only valid on the
 instance the callback is added to. If you want to define or override a callback
 globally, you should make a subclass of the Redis client and add your callback
-to its REDIS_CALLBACKS class dictionary.
+to its RESPONSE_CALLBACKS class dictionary.
 
 Response callbacks take at least one parameter: the response from the Redis
 server. Keyword arguments may also be accepted in order to further control
@@ -291,7 +304,7 @@ duration of a WATCH, care must be taken to ensure that the connection is
 returned to the connection pool by calling the reset() method. If the
 Pipeline is used as a context manager (as in the example above) reset()
 will be called automatically. Of course you can do this the manual way by
-explicity calling reset():
+explicitly calling reset():
 
 .. code-block:: pycon
 
@@ -444,7 +457,7 @@ application.
     >>> r.publish('my-channel')
     1
     >>> p.get_message()
-    {'channel': 'my-channel', data': 'my data', 'pattern': None, 'type': 'message'}
+    {'channel': 'my-channel', 'data': 'my data', 'pattern': None, 'type': 'message'}
 
 There are three different strategies for reading messages.
 
@@ -519,7 +532,23 @@ cannot be delivered. When you're finished with a PubSub object, call its
     >>> ...
     >>> p.close()
 
-LUA Scripting
+
+The PUBSUB set of subcommands CHANNELS, NUMSUB and NUMPAT are also
+supported:
+
+.. code-block:: pycon
+
+    >>> r.pubsub_channels()
+    ['foo', 'bar']
+    >>> r.pubsub_numsub('foo', 'bar')
+    [('foo', 9001), ('bar', 42)]
+    >>> r.pubsub_numsub('baz')
+    [('baz', 0)]
+    >>> r.pubsub_numpat()
+    1204
+
+
+Lua Scripting
 ^^^^^^^^^^^^^
 
 redis-py supports the EVAL, EVALSHA, and SCRIPT commands. However, there are
@@ -528,10 +557,10 @@ scenarios. Therefore, redis-py exposes a Script object that makes scripting
 much easier to use.
 
 To create a Script instance, use the `register_script` function on a client
-instance passing the LUA code as the first argument. `register_script` returns
+instance passing the Lua code as the first argument. `register_script` returns
 a Script instance that you can use throughout your code.
 
-The following trivial LUA script accepts two parameters: the name of a key and
+The following trivial Lua script accepts two parameters: the name of a key and
 a multiplier value. The script fetches the value stored in the key, multiplies
 it with the multiplier value and returns the result.
 
@@ -548,8 +577,8 @@ it with the multiplier value and returns the result.
 function. Script instances accept the following optional arguments:
 
 * **keys**: A list of key names that the script will access. This becomes the
-  KEYS list in LUA.
-* **args**: A list of argument values. This becomes the ARGV list in LUA.
+  KEYS list in Lua.
+* **args**: A list of argument values. This becomes the ARGV list in Lua.
 * **client**: A redis-py Client or Pipeline instance that will invoke the
   script. If client isn't specified, the client that intiially
   created the Script instance (the one that `register_script` was
@@ -564,7 +593,7 @@ Continuing the example from above:
     10
 
 The value of key 'foo' is set to 2. When multiply is invoked, the 'foo' key is
-passed to the script along with the multiplier value of 5. LUA executes the
+passed to the script along with the multiplier value of 5. Lua executes the
 script and returns the result, 10.
 
 Script instances can be executed using a different client instance, even one
@@ -577,7 +606,7 @@ that points to a completely different Redis server.
     >>> multiply(keys=['foo'], args=[5], client=r2)
     15
 
-The Script object ensures that the LUA script is loaded into Redis's script
+The Script object ensures that the Lua script is loaded into Redis's script
 cache. In the event of a NOSCRIPT error, it will load the script and retry
 executing it.
 
